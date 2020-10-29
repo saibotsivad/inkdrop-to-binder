@@ -182,16 +182,12 @@ sade('inkdrop-to-binder', true)
 					let fullFilePath = join(output, filePath)
 					try {
 						await fileExists(fullFilePath)
-						if (filename === '_README.md') {
-							// We can replace the automatically generated one, but
-							// also merge the yaml properties?
-						} else {
-							log('warn', 'Detected a note with a duplicate title', `(${noteId})`, `"${note.title}"`)
-							// Create a copy with a different name?
-							// recommend setting a `canonical` property?
+						if (filename !== '_README.md') {
+							log('error', 'Detected a note with a duplicate title', `(${noteId})`, `"${join(bookIdToFolderPath[note.bookId], note.title)}"`)
+							process.exit(1)
 						}
 					} catch {
-						// ignore
+						// ignore, the file does not fileExists
 					}
 					await writeFile(fullFilePath, noteYamlString(note, tagNames, noteMetadata), { encoding: 'utf8' })
 				}
