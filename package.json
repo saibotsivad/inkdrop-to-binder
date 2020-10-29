@@ -1,0 +1,30 @@
+{
+  "name": "inkdrop-to-binder",
+  "version": "0.0.0",
+  "description": "",
+  "bin": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/saibotsivad/inkdrop-to-binder.git"
+  },
+  "keywords": [
+    "inkdrop",
+    "blockdown",
+    "blockdown-binder",
+    "markdown"
+  ],
+  "author": "saibotsivad",
+  "license": "VOL",
+  "bugs": {
+    "url": "https://github.com/saibotsivad/inkdrop-to-binder/issues"
+  },
+  "homepage": "https://github.com/saibotsivad/inkdrop-to-binder#readme",
+  "dependencies": {
+    "gray-matter": "^4.0.2",
+    "mkdirp": "^1.0.4",
+    "sade": "^1.7.4"
+  }
+}
