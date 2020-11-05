@@ -21,6 +21,7 @@
   "homepage": "https://github.com/saibotsivad/inkdrop-to-binder#readme",
   "dependencies": {
     "gray-matter": "^4.0.2",
+    "mime-db": "^1.45.0",
     "mkdirp": "^1.0.4",
     "sade": "^1.7.4"
   }

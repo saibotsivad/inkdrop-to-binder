@@ -2,15 +2,18 @@
 
 const { version } = require('./package.json')
 const { promisify } = require('util')
-const { join, resolve } = require('path')
+const { join, parse, resolve } = require('path')
 const fs = require('fs')
 const matter = require('gray-matter')
+const mimeTypes = require('mime-db')
 const mkdirp = require('mkdirp')
 const sade = require('sade')
 
 const readdir = promisify(fs.readdir)
 const fileExists = promisify(fs.access)
 const writeFile = promisify(fs.writeFile)
+
+const MEDIA_FOLDER = '_media'
 
 const sanitizeFile = filename => filename.replace('/', '-') // TODO: sanitize
 
@@ -91,10 +94,11 @@ sade('inkdrop-to-binder', true)
 
 		const log = (level, message, ...args) => {
 			if (level !== 'debug' || verbose) {
-				const prefix = verbose
-					? `[${new Date().toISOString()}] `
-					: ''
-				console[level](`${prefix}[${level.toUpperCase()}]`, message, ...args)
+				if (verbose) {
+					console[level](`[${new Date().toISOString()}] [${level.toUpperCase()}]`, message, ...args)
+				} else {
+					console[level](message, ...args)
+				}
 			}
 		}
 
@@ -106,7 +110,7 @@ sade('inkdrop-to-binder', true)
 
 			const filenames = await readdir(join(input, 'data'))
 
-			const { book: books, note: notes, tag: tags } = filenames
+			const { book: books, file: files, note: notes, tag: tags } = filenames
 				.reduce((map, filename) => {
 					const [ type, idJson ] = filename.split(':')
 					if (idJson) {
@@ -117,6 +121,7 @@ sade('inkdrop-to-binder', true)
 				}, {})
 
 			log('info', 'Book count:', Object.keys(books).length)
+			log('info', 'File count:', Object.keys(files).length)
 			log('info', 'Note count:', Object.keys(notes).length)
 			log('info', 'Tag count:', Object.keys(tags).length)
 
@@ -149,8 +154,46 @@ sade('inkdrop-to-binder', true)
 				await writeFile(join(fullFolderPath, '_README.md'), yaml, { encoding: 'utf8' })
 			}
 
+			log('info', 'Writing all files...')
+			await mkdirp(join(output, MEDIA_FOLDER))
+			const fileIdToFilename = {}
+			for (const fileId in files) {
+				const mime = mimeTypes[files[fileId].contentType]
+				const extension = mime && mime.extensions && mime.extensions[0]
+					|| parse(files[fileId].name).ext
+				const id = fileId.split(':')[1]
+				const filepath = join(
+					MEDIA_FOLDER,
+					id + (
+						extension[0] === '.'
+							? extension
+							: '.' + extension
+					)
+				)
+				fileIdToFilename[fileId] = filepath
+				log('debug', 'Writing file:', filepath)
+				fs.writeFileSync(
+					join(output, filepath),
+					Buffer.from(files[fileId]._attachments.index.data, 'base64')
+				)
+			}
+
 			const noteIsSkippable = note => note.bookId === 'trash'
 				|| (note.status === 'completed' && ignoreCompleted)
+
+			const setReferencedFiles = note => {
+				const uris = note.body.match(/inkdrop:\/\/file:[^) "']*/g) || []
+				for (const uri of uris) {
+					const [ , fileId ] = uri.split('inkdrop://')
+					note.body = note
+						.body
+						// since there's no .replaceAll in NodeJS :-|
+						.split(uri)
+						.join('/' + fileIdToFilename[fileId])
+				}
+			}
+
+			log('info', 'Writing all notes...')
 
 			for (const noteId in notes) {
 				const note = notes[noteId]
@@ -161,6 +204,8 @@ sade('inkdrop-to-binder', true)
 					// without first correctly migrating all Notes.
 					log('debug', 'Found note without book:', noteId)
 				} else {
+					setReferencedFiles(note)
+
 					let noteMetadata = {}
 					if (note.body.startsWith('---\n')) {
 						try {
